@@ -1,0 +1,91 @@
+namespace :bluepill do
+  desc "Install the bluepill monitoring tool"
+  task :install do
+    on roles(fetch(:bluepill_roles)) do
+      within release_path do
+        execute "#{SSHKit.config.command_map[:env]} gem install bluepill"
+      end
+    end
+  end
+
+  desc "Stop processes that bluepill is monitoring and quit bluepill"
+  task :quit do
+    on roles(fetch(:bluepill_roles)) do
+      cmd = "#{fetch(:bluepill_cmd)} quit"
+      execute_bluepill(cmd, :capture => true)
+    end
+  end
+  before :quit, :stop
+
+  desc "Load the pill from config file"
+  task :load do
+    on roles(fetch(:bluepill_roles)) do
+      within release_path do
+        bluepill_config = shared_path.join('bluepill', "#{fetch(:bluepill_app)}.pill")
+
+        cmd = "#{fetch(:bluepill_cmd)} load #{bluepill_config}"
+        execute_bluepill(cmd)
+      end
+    end
+  end
+  task :init => :load
+
+  desc "Starts your previous stopped pill"
+  task :start do
+    on roles(fetch(:bluepill_roles)) do
+      # OPTIMIZE : start only current application
+      cmd = "#{fetch(:bluepill_cmd)} start" # #{fetch(:bluepill_app)}"
+      execute_bluepill(cmd)
+    end
+  end
+
+  desc "Stops some bluepill monitored process"
+  task :stop do
+    on roles(fetch(:bluepill_roles)) do
+      # OPTIMIZE : stop only current application
+      cmd = "#{fetch(:bluepill_cmd)} stop" # #{fetch(:bluepill_app)}"
+      execute_bluepill(cmd)
+    end
+  end
+
+  desc "Restarts the pill from {your-app}/config/pills/{app-name}.pill"
+  task :restart do
+    on roles(fetch(:bluepill_roles)) do
+      # OPTIMIZE : restart only current application
+      cmd = "#{fetch(:bluepill_cmd)} restart" # #{fetch(:bluepill_app)}"
+      execute_bluepill(cmd)
+    end
+  end
+
+  desc "Prints bluepills monitored processes statuses"
+  task :status do
+    on roles(fetch(:bluepill_roles)) do
+      cmd = "#{fetch(:bluepill_cmd)} status"
+      execute_bluepill(cmd, :capture => true)
+    end
+  end
+
+  def execute_bluepill(command, options = {})
+    bluepill_sudo = fetch(:bluepill_sudo)
+    method = options[:capture] ? :capture : :execute
+    cmd = "export RAILS_ENV=#{fetch(:rails_env)}; #{command}"
+
+    #with rails_env: fetch(:rails_env) do
+      if bluepill_sudo
+        ret = self.send(method, "sudo su - -c '#{cmd}'")
+      else
+        ret = self.send(method, "#{cmd} --no-privileged")
+      end
+      info "Bluepill status\n#{ret}" if method == :capture
+    #end
+  end
+end
+
+namespace :load do
+  task :defaults do
+    set :bluepill_cmd,         -> { "#{SSHKit.config.command_map[:env]} bluepill" }
+    set :bluepill_app,         -> { fetch(:application) }
+    set :bluepill_sudo,        false
+    set :bluepill_roles,       :all
+  end
+end

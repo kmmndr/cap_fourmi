@@ -1,0 +1,76 @@
+namespace :foreman do
+  desc <<-DESC
+    Export the Procfile to bluepill.
+
+    You can override any of these defaults by setting the variables shown below.
+
+    set :foreman_cmd,         "foreman"
+    set :foreman_format,      "bluepill"
+    set :foreman_location,    -> { shared_path.join('bluepill') } # "/etc/init"
+    set :foreman_port,        5000
+    set :foreman_root,        -> { release_path }
+    set :foreman_procfile,    -> { release_path.join('Procfile') }
+    set :foreman_app,         -> { fetch(:application) }
+    set :foreman_user,        -> { fetch(:user) }
+    set :foreman_log,         -> { shared_path.join('log') }
+    set :foreman_pids,        false
+    set :foreman_concurrency, false
+    set :foreman_sudo,        false
+    set :foreman_roles,       :all
+  DESC
+
+  task :export do
+    on roles(fetch(:foreman_roles)) do |srv|
+      within release_path do
+        concurrency  = fetch(:foreman_concurrency)
+        foreman_sudo = fetch(:foreman_sudo)
+        foreman_pids = fetch(:foreman_pids)
+
+        args  = [fetch(:foreman_format), fetch(:foreman_location)]
+        args << %Q(-f #{fetch(:foreman_procfile)})
+        args << %Q(-p #{fetch(:foreman_port)})
+        args << %Q(-d #{fetch(:foreman_root)})
+        args << %Q(-a #{fetch(:foreman_app)})
+        args << %Q(-u #{foreman_user(srv)})
+        args << %Q(-l #{fetch(:foreman_log)})
+        args << %Q(-r #{fetch(:foreman_pids)}) if foreman_pids
+        args << %Q(-c #{concurrency}) if concurrency
+
+        cmd = "#{fetch(:foreman_cmd)} export #{args.join(' ')}"
+
+        if foreman_sudo
+          execute "sudo su - -c '#{cmd}'"
+        else
+          execute cmd
+        end
+      end
+    end
+  end
+
+  def foreman_user(server = nil)
+    user = server.user unless server.nil?
+    fetch(:foreman_user) || user
+  end
+end
+
+namespace :load do
+  task :defaults do
+    set :foreman_cmd,         -> { "#{SSHKit.config.command_map[:env]} foreman" }
+    set :foreman_format,      "bluepill"
+    set :foreman_location,    -> { shared_path.join('bluepill') } # "/etc/init"
+    set :foreman_port,        5000
+    set :foreman_root,        -> { release_path }
+    set :foreman_procfile,    -> { release_path.join('Procfile') }
+    set :foreman_app,         -> { fetch(:application) }
+    set :foreman_user,        -> { fetch(:user) }
+    set :foreman_log,         -> { shared_path.join('log') }
+    set :foreman_pids,        false
+    set :foreman_concurrency, false
+    set :foreman_sudo,        false
+    set :foreman_roles,       :all
+  end
+end
+
+#namespace :deploy do
+#  after :updated, 'foreman:export'
+#end

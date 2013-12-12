@@ -1,0 +1,15 @@
+# Add the info task
+
+desc 'prints the configuration'
+task :info do
+  show = Proc.new {|var| puts "- #{var}: #{fetch var.to_sym}\n" }
+  show.call "application"
+  show.call "stage"
+  show.call "user"
+  show.call "deploy_to"
+  show.call "repo_url"
+  show.call "branch"
+  show.call "rails_env"
+  show.call "chruby_ruby"
+  show.call "ry_ruby"
+end

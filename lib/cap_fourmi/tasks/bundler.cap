@@ -1,0 +1,11 @@
+namespace :bundler do
+  desc "Ensure Bundler is present"
+  task :check_install do
+    on roles(:app) do
+      # FIXME : capistrano 3
+      #execute 'gem query --local | grep bundler || gem install bundler'
+    end
+  end
+end
+
+before 'deploy:updating', 'bundler:check_install'
