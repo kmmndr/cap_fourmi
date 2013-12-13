@@ -1,0 +1,39 @@
+namespace :eye do
+  desc 'Start application using eye'
+  task :start do
+    on roles(fetch(:eye_roles)) do
+      within current_path do
+        execute fetch(:eye_cmd), 'start', fetch(:eye_app)
+      end
+    end
+  end
+
+  desc 'Stop application using eye'
+  task :stop do
+    on roles(fetch(:eye_roles)) do
+      within current_path do
+        execute fetch(:eye_cmd), 'stop', fetch(:eye_app)
+      end
+    end
+  end
+
+  desc 'Restart application using eye'
+  task :restart do
+    on roles(fetch(:eye_roles)) do
+      within current_path do
+        #if test " [ -f tmp/pids/eye.#{fetch(:eye_port)}.pid ] "
+        invoke 'eye:stop'
+        invoke 'eye:start'
+      end
+    end
+  end
+end
+
+namespace :load do
+  task :defaults do
+    set :eye_cmd,   'eye'
+    set :eye_app,   -> { fetch(:application) }
+    set :eye_roles, :app
+  end
+end
+
