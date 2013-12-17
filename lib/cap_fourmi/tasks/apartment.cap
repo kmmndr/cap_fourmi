@@ -1,0 +1,41 @@
+namespace :apartment do
+  desc "Create apartment database(s)/schema(s)"
+  task :create do
+    on roles(:db) do
+      within current_path do
+        with rails_env: fetch(:rails_env) do
+          execute :rake, 'apartment:create'
+        end
+      end
+    end
+  end
+  desc "Runs migration agains apartment database(s)"
+  task :migrate do
+    on roles(:db) do
+      within current_path do
+        with rails_env: fetch(:rails_env) do
+          execute :rake, 'apartment:migrate'
+        end
+      end
+    end
+  end
+
+  desc "Seed the database"
+  task :seed do
+    on roles(:db) do
+      within current_path do
+        with rails_env: fetch(:rails_env) do
+          execute :rake, 'apartment:seed'
+        end
+      end
+    end
+  end
+end
+
+namespace :deploy do
+  desc "Migrate all database including apartment"
+  task :migrate_all => ['db:migrate', 'apartment:migrate']
+
+  desc "Seed the database and apartment"
+  task :seed_all => ['db:seed', 'apartment:seed']
+end
