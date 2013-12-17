@@ -1,0 +1,82 @@
+namespace :eye do
+  desc "Install eye monitoring tool"
+  task :install do
+    on roles(fetch(:eye_roles)) do
+      within release_path do
+        execute "#{SSHKit.config.command_map[:env]} gem install eye"
+      end
+    end
+  end
+
+  desc "Stop processes that eye is monitoring and quit eye"
+  task :quit do
+    on roles(fetch(:eye_roles)) do
+      cmd = "#{fetch(:eye_cmd)} quit"
+      execute_eye(cmd, :capture => true)
+    end
+  end
+  before :quit, :stop
+
+  desc "Load config file"
+  task :load do
+    on roles(fetch(:eye_roles)) do
+      within release_path do
+        cmd = "#{fetch(:eye_cmd)} load #{fetch(:eye_config)}"
+        execute_eye(cmd)
+      end
+    end
+  end
+  task :init => :load
+
+  desc "Starts your previous stopped applications"
+  task :start do
+    on roles(fetch(:eye_roles)) do
+      cmd = "#{fetch(:eye_cmd)} start #{fetch(:eye_app)}"
+      execute_eye(cmd)
+    end
+  end
+
+  desc "Stops some eye monitored process"
+  task :stop do
+    on roles(fetch(:eye_roles)) do
+      cmd = "#{fetch(:eye_cmd)} stop #{fetch(:eye_app)}"
+      execute_eye(cmd)
+    end
+  end
+
+  desc "Restarts the pill from {your-app}/config/pills/{app-name}.pill"
+  task :restart do
+    on roles(fetch(:eye_roles)) do
+      cmd = "#{fetch(:eye_cmd)} restart #{fetch(:eye_app)}"
+      execute_eye(cmd)
+    end
+  end
+
+  desc "Prints eyes monitored processes statuses"
+  task :info do
+    on roles(fetch(:eye_roles)) do
+      cmd = "#{fetch(:eye_cmd)} info"
+      execute_eye(cmd, :capture => true)
+    end
+  end
+  task :status => :info
+
+  def execute_eye(command, options = {})
+    method = options[:capture] ? :capture : :execute
+    cmd = "export RAILS_ENV=#{fetch(:rails_env)}; #{command}"
+
+    #with rails_env: fetch(:rails_env) do
+      ret = self.send(method, cmd)
+      info "eye status\n#{ret}" if method == :capture
+    #end
+  end
+end
+
+namespace :load do
+  task :defaults do
+    set :eye_cmd,         -> { "#{SSHKit.config.command_map[:env]} eye" }
+    set :eye_app,         -> { fetch(:application) }
+    set :eye_config,      -> { shared_path.join('eye', "#{fetch(:eye_app)}.eye") }
+    set :eye_roles,       :all
+  end
+end
