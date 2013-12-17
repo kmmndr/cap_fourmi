@@ -8,6 +8,15 @@ namespace :bluepill do
     end
   end
 
+  desc "Killall bluepill/ruby processes (use with care !)"
+  task :force_quit do
+    on roles(fetch(:bluepill_roles)) do
+      execute "killall bluepill ; true"
+      execute "killall -9 ruby ; true"
+      execute :rm, release_path.join('*.sock')
+    end
+  end
+
   desc "Stop processes that bluepill is monitoring and quit bluepill"
   task :quit do
     on roles(fetch(:bluepill_roles)) do
