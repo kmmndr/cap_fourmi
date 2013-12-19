@@ -1,0 +1,60 @@
+require 'mail'
+
+namespace :notify do
+  desc <<-DESC
+    Sends a notification via email once a deployment is complete.
+  DESC
+  task :via_email do
+    #run_locally do
+    on roles(:app) do
+      Mail.defaults do
+        delivery_method fetch(:email_notifier_mail_method), fetch(:email_notifier_mail_options)
+      end
+
+      unless verify_variables(:email_notifier_domain,
+                          :email_notifier_sender,
+                          :email_notifier_recipients,
+                          :email_notifier_server)
+        error "Email notifier internal recipients not set"
+      else
+        begin
+          now = Time.now
+          body_message = ''
+          body_message << "Deploy operation /#{fetch(:stage)}/\n"
+          body_message << "  - at : #{now.strftime("%d/%m/%Y")} - #{now.strftime("%H:%M")}\n"
+          body_message << "  - on : #{host.hostname}\n"
+          body_message << "  - branch : '#{fetch(:branch)}'\n"
+
+          Mail.deliver do
+                to fetch(:email_notifier_recipients)
+              from fetch(:email_notifier_sender)
+           subject fetch(:email_notifier_subject)
+              body body_message
+          end
+        rescue Exception => e
+          error "Mail server error : #{e}"
+        end
+      end
+    end
+  end
+end
+
+namespace :load do
+  task :defaults do
+    set :email_notifier_subject, '*** New release successfully deployed ***'
+    set :email_notifier_mail_method,         :smtp
+    set :email_notifier_server,              "127.0.0.1"
+    set :email_notifier_port,                25
+    set :email_notifier_authentication,      'plain'
+    set :email_notifier_mail_options, -> {
+      { :address              => fetch(:email_notifier_server),
+        :port                 => fetch(:email_notifier_port),
+        :domain               => fetch(:email_notifier_domain),
+        :user_name            => fetch(:email_notifier_username),
+        :password             => fetch(:email_notifier_password),
+        :authentication       => fetch(:email_notifier_authentication),
+        :enable_starttls_auto => true
+      }
+    }
+  end
+end

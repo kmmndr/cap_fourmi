@@ -1,0 +1,40 @@
+namespace :fourmi do
+  desc "Full deploy process"
+  task :deploy do
+    #deploy
+    #  deploy:starting
+    #    [before]
+    #      deploy:ensure_stage
+    #      deploy:set_shared_assets
+    #    deploy:check
+    #  deploy:started
+    #  deploy:updating
+    before "deploy:updating", "db:backup:dump"
+    #    git:create_release
+    #    deploy:symlink:shared
+    #  deploy:updated
+    #    [before]
+    #      deploy:bundle
+    #    [after]
+    #      deploy:migrate
+    after 'deploy:migrate', 'apartment:create'
+    after 'deploy:migrate', 'apartment:migrate'
+    after 'deploy:migrate', 'db:seed'
+    after 'deploy:migrate', 'apartment:seed'
+    #      deploy:compile_assets
+    before 'deploy:compile_assets', 'assets:i18n_export'
+    #      deploy:cleanup_assets
+    #      deploy:normalise_assets
+    #  deploy:publishing
+    #    deploy:symlink:release
+    #    deploy:restart
+    #  deploy:published
+    #  deploy:finishing
+    #    deploy:cleanup
+    #  deploy:finished
+    #    deploy:log_revision
+    after 'deploy:finished', 'notify:via_email'
+
+    invoke 'deploy'
+  end
+end

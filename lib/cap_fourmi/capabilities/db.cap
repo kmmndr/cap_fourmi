@@ -1,0 +1,179 @@
+namespace :db do
+  desc "Seed the database"
+  task :seed do
+    on roles(:db) do
+      within current_path do
+        with rails_env: fetch(:rails_env) do
+          execute :rake, 'db:seed'
+        end
+      end
+    end
+  end
+
+  desc "Runs rake db:migrate if migrations are set (alias)"
+  task :migrate => 'deploy:migrate'
+
+  namespace :backup do
+    desc <<-DESC
+      Backup your PostgreSQL or MySQL database on the server for the given environment.
+
+      * The backup file is placed in a directory called `db_backups` under the `shared`
+        directory by default.
+      * The filenames are formatted with the timestamp of the backup.
+      * After export, each file is zipped up using a bzip2 compression format.
+    DESC
+    task :dump do
+      on roles(:db, :only => {:primary => true}) do
+        db_username = fetch(:remote_db)['username']
+        db_password = fetch(:remote_db)['password']
+        db_database = fetch(:remote_db)['database']
+        db_host = fetch(:remote_db)['host']
+        db_adapter = fetch(:remote_db)['adapter']
+        backup_file = fetch(:backup_file)
+
+        case db_adapter
+        when 'postgresql'
+          execute "PGPASSWORD=#{db_password} pg_dump -w -c -U #{db_username} -h #{db_host} #{db_database} > #{backup_file}" do |ch, data|
+            #ch.send_data "#{db_password}\n" #if out=~ /^Password/
+          end
+        when 'mysql'
+          execute "mysqldump --add-drop-table -u #{db_username} -h #{db_host} -p #{db_database} > #{backup_file}" do |ch, data|
+            #ch.send_data "#{db_password}\n" if out=~ /^Enter password:/
+          end
+        else
+          error "Database type '#{db_adapter}' not handled"
+        end
+      end
+    end
+    before :dump, :read_db_config
+    before :dump, :create_backup_folder
+
+    task :read_db_config do
+      # remote database
+      on roles(:db, :only => { :primary => true }) do
+        set :remote_db, YAML.load(capture("cat #{shared_path.join('config', 'database.yml')}"))[fetch(:rails_env).to_s]
+      end
+      # local database
+      set :local_db, YAML.load(File.open(File.join('config', 'database.yml')))['development']
+    end
+
+    task :create_backup_folder do
+      on roles(:db, :only => { :primary => true }) do
+        execute :mkdir, '-p', fetch(:backup_to) unless fetch(:backup_to).nil?
+      end
+    end
+
+
+    desc <<-DESC
+      If the user has decided they would like to limit the number of db backups
+      that can exist on the system, this task is called to clean up any files
+      which are over that limit.
+
+      The oldest files are cleaned up first.
+    DESC
+    task :cleanup do
+      on roles(:db, :only => {:primary => true}) do
+        number_of_backups = capture("ls #{fetch(:backup_to)} -1 | wc -l").chomp.to_i
+        total_db_backup_limit = fetch(:total_db_backup_limit)
+
+        if number_of_backups > total_db_backup_limit
+          backup_files_to_remove = capture("ls #{fetch(:backup_to)}/* -1t | tail -n #{number_of_backups - total_db_backup_limit}").chomp.split("\n")
+
+          backup_files_to_remove.each do |file|
+            execute "rm -f #{file}"
+          end
+        end
+      end
+    end
+
+    task :get_latest_backup_file do
+      on roles(:db, :only => {:primary => true}) do
+        set :latest_db_backup_file, capture("ls #{fetch(:backup_to)} -1t | head -n 1").chomp
+      end
+    end
+
+    namespace :compress do
+      desc <<-DESC
+        Compresses the most recent backup if it isn't already compressed.
+
+        The compression format is bzip2.
+      DESC
+      task :latest do
+        invoke 'database:backup:get_latest_backup_file'
+        on roles(:db, :only => {:primary => true}) do
+          latest_db_backup = fetch(:latest_db_backup)
+          #execute "bzip2 -zvck9 #{latest_db_backup} > #{latest_db_backup}.bz2 && rm -f #{latest_db_backup}" unless compressed_file?(latest_db_backup)
+          execute compress_file(latest_db_backup) unless compressed_file?(latest_db_backup)
+
+        end
+      end
+
+      desc <<-DESC
+        Compresses any uncompressed DB backups to help save space.
+
+        The compression format is bzip2.
+      DESC
+      task :all do
+        on roles(:db, :only => {:primary => true}) do
+          backup_files = capture("ls #{fetch(:backup_to)}/* -1tr").chomp.split("\n").map(&:strip)
+
+          backup_files.each do |file|
+            execute compress_file(file) unless compressed_file?(file)
+          end
+        end
+      end
+    end
+  end
+
+  namespace :pull do
+    desc <<-DESC
+      Creates an easy way to debug remote data locally.
+
+      * Running this task will create a dump file of all the data in the specified
+        environment.
+      * Copy the dump file to the local machine
+      * Drop and recreate all local databases
+      * Import the dump file
+      * Bring the local DB up-to-date with any local migrations
+      * Prepare the test environment
+    DESC
+    task :very_latest do
+      invoke 'db:backup:dump'
+      invoke 'db:pull:latest'
+    end
+
+    desc <<-DESC
+      Download latest backup allready available.
+    DESC
+    task :latest do
+      on roles(:db, :only => {:primary => true}) do
+        download_compressed! "#{fetch(:latest_db_backup)}", "tmp/#{fetch(:latest_db_backup_file)}", :once => true
+        #latest_local_db_backup = `ls -1t tmp/*.#{db_backup_file_extension} | head -n 1`.chomp
+
+        #puts 'Running `rake db:drop:all db:create:all` locally'
+        #`#{local_rake} db:drop:all db:create:all`
+        #puts "Running `rails dbconsole development < #{latest_local_db_backup}` locally"
+        #`rails dbconsole development < #{latest_local_db_backup}`
+        #puts "Running `rake db:migrate db:test:prepare` locally"
+        #`#{local_rake} db:migrate db:test:prepare`
+      end
+    end
+    before :latest, 'db:backup:get_latest_backup_file'
+  end
+end
+
+namespace :load do
+  task :defaults do
+    set :autocompress_db_backups,       true
+    set :backup_to, -> { shared_path.join('db_backups') }
+
+    set :backup_file, -> {
+      now = Time.now
+      backup_time = [now.year,now.month,now.day,now.hour,now.min,now.sec].join('-')
+      File.join(fetch(:backup_to), ("#{fetch(:remote_db)['database']}-snapshot-#{backup_time}.sql"))
+    }
+
+    set :total_db_backup_limit, 5
+    set :latest_db_backup, -> {"#{fetch(:backup_to)}/#{fetch(:latest_db_backup_file)}"}
+  end
+end
