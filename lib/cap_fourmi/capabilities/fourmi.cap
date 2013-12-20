@@ -10,6 +10,7 @@ namespace :fourmi do
     #  deploy:started
     #  deploy:updating
     before "deploy:updating", "db:backup:dump"
+    after 'deploy:updating', 'bundler:check_install'
     #    git:create_release
     #    deploy:symlink:shared
     #  deploy:updated

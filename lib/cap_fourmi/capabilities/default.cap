@@ -8,4 +8,3 @@ set :scm,             :git
 set :keep_releases,   5
 
 after "deploy:updated", "deploy:cleanup"
-#before 'database:read_remote_database_yml', 'environment:defaults:db'

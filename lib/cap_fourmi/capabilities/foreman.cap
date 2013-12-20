@@ -70,7 +70,3 @@ namespace :load do
     set :foreman_roles,       :all
   end
 end
-
-#namespace :deploy do
-#  after :updated, 'foreman:export'
-#end
