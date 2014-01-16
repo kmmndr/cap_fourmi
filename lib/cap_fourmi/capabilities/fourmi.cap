@@ -1,6 +1,10 @@
 namespace :fourmi do
+  desc "Deploy"
+  task :deploy => [:full_deploy] do
+  end
+
   desc "Full deploy process"
-  task :deploy do
+  task :full_deploy do
     #deploy
     #  deploy:starting
     #    [before]
@@ -10,6 +14,7 @@ namespace :fourmi do
     #  deploy:started
     #  deploy:updating
     before "deploy:updating", "db:backup:dump"
+    before "db:backup:dump", 'deploy:stop'
     after 'deploy:updating', 'bundler:check_install'
     #    git:create_release
     #    deploy:symlink:shared
@@ -35,6 +40,30 @@ namespace :fourmi do
     #    deploy:cleanup
     #  deploy:finished
     #    deploy:log_revision
+    after 'deploy:finished', 'notify:via_email'
+
+    invoke 'deploy'
+  end
+
+  desc "Quick deploy process (no assets precompile)"
+  task :quick_deploy do
+    Rake::Task["deploy:assets:precompile"].clear
+
+    after 'deploy:updating', 'bundler:check_install'
+    after 'deploy:migrate', 'apartment:create'
+    after 'deploy:migrate', 'apartment:migrate'
+    after 'deploy:migrate', 'db:seed'
+    after 'deploy:migrate', 'apartment:seed'
+    after 'deploy:finished', 'notify:via_email'
+
+    invoke 'deploy'
+  end
+
+  desc "Very quick deploy process (only versionned files)"
+  task :very_quick_deploy do
+    Rake::Task["deploy:assets:precompile"].clear
+    Rake::Task["deploy:migrate"].clear
+
     after 'deploy:finished', 'notify:via_email'
 
     invoke 'deploy'
