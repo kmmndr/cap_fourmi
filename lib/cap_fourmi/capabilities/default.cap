@@ -7,4 +7,6 @@ set :scm,             :git
 # but it should be the case.
 set :keep_releases,   5
 
+before "deploy:updating", "deploy:retrieve_revision_before"
 after "deploy:updated", "deploy:cleanup"
+after "deploy:updated", "deploy:retrieve_revision"

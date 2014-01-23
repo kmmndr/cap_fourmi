@@ -1,2 +1,19 @@
 namespace :deploy do
+  desc "Retrieve current revision"
+  task :retrieve_revision do
+    retrieve_current_revision(:revision) if fetch(:revision).nil?
+  end
+
+  desc "Retrieve revision before update"
+  task :retrieve_revision_before do
+    retrieve_current_revision(:revision_before) if fetch(:revision_before).nil?
+  end
+
+  def retrieve_current_revision(key)
+    on roles(:app) do |host|
+      within repo_path do
+        set key, capture(:git, 'rev-parse', fetch(:branch))
+      end
+    end
+  end
 end
