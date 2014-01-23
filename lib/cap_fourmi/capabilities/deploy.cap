@@ -1,7 +1,10 @@
 namespace :deploy do
   desc "Retrieve current revision"
   task :retrieve_revision do
-    retrieve_current_revision(:revision) if fetch(:revision).nil?
+    if fetch(:revision).nil?
+      retrieve_current_revision(:revision)
+      retrieve_revisions_log
+    end
   end
 
   desc "Retrieve revision before update"
@@ -13,6 +16,16 @@ namespace :deploy do
     on roles(:app) do |host|
       within repo_path do
         set key, capture(:git, 'rev-parse', fetch(:branch))
+      end
+    end
+  end
+
+  def retrieve_revisions_log
+    unless fetch(:revision_before).nil? || fetch(:revision).nil? || (fetch(:revision_before) == fetch(:revision))
+      on roles(:app) do |host|
+        within repo_path do
+          set :revisions_log, capture(:git, '--no-pager', 'log', '--graph', "--pretty=format:'%s (%cn)'", "#{fetch(:revision_before)}..#{fetch(:revision)}")
+        end
       end
     end
   end

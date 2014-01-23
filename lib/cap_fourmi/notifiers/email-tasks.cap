@@ -29,6 +29,11 @@ namespace :notify do
           body_message << "  - revision : '#{fetch(:revision)}'\n"
           body_message << "  - old revision : '#{fetch(:revision_before)}'\n" unless fetch(:revision_before).nil?
 
+          unless fetch(:revisions_log).nil?
+            body_message << "\nChanges : \n"
+            body_message << "#{fetch(:revisions_log)}'\n"
+          end
+
           Mail.deliver do
                 to fetch(:email_notifier_recipients)
               from fetch(:email_notifier_sender)
