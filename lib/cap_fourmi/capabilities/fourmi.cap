@@ -15,7 +15,6 @@ namespace :fourmi do
     #  deploy:updating
     before "deploy:updating", "db:backup:dump"
     before "db:backup:dump", 'deploy:stop'
-    after 'deploy:updating', 'bundler:check_install'
     #    git:create_release
     #    deploy:symlink:shared
     #  deploy:updated
@@ -23,9 +22,7 @@ namespace :fourmi do
     #      deploy:bundle
     #    [after]
     #      deploy:migrate
-    after 'deploy:migrate', 'apartment:create'
     after 'deploy:migrate', 'apartment:migrate'
-    after 'deploy:migrate', 'db:seed'
     after 'deploy:migrate', 'apartment:seed'
     #      deploy:compile_assets
     before 'deploy:assets:precompile', 'deploy:migrate'   ### hack
@@ -49,10 +46,7 @@ namespace :fourmi do
   task :quick_deploy do
     Rake::Task["deploy:assets:precompile"].clear
 
-    after 'deploy:updating', 'bundler:check_install'
-    after 'deploy:migrate', 'apartment:create'
     after 'deploy:migrate', 'apartment:migrate'
-    after 'deploy:migrate', 'db:seed'
     after 'deploy:migrate', 'apartment:seed'
     after 'deploy:finished', 'notify:via_email'
 
