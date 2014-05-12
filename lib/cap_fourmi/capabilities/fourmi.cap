@@ -31,7 +31,7 @@ namespace :fourmi do
     #      deploy:normalise_assets
     #  deploy:publishing
     #    deploy:symlink:release
-    #    deploy:restart
+    after 'deploy:publishing', 'deploy:restart'
     #  deploy:published
     #  deploy:finishing
     #    deploy:cleanup
