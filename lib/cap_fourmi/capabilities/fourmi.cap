@@ -22,8 +22,7 @@ namespace :fourmi do
     #      deploy:bundle
     #    [after]
     #      deploy:migrate
-    after 'deploy:migrate', 'apartment:migrate'
-    after 'deploy:migrate', 'apartment:seed'
+    after 'deploy:migrate', 'db:seed'
     #      deploy:compile_assets
     before 'deploy:assets:precompile', 'deploy:migrate'   ### hack
     before 'deploy:assets:precompile', 'assets:i18n_export'
